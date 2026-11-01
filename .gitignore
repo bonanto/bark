@@ -1,0 +1,10 @@
+dist/
+target/
+*.ps1
+*.exe
+*.dll
+*.msix
+*.msixbundle
+*.appx
+*.pdb
+*.zip
