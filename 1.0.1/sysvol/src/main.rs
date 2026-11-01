@@ -90,7 +90,7 @@ const T_BALLOON: usize = 101;
 const NIN_BALLOONUSERCLICK: u32 = 0x0405;
 const WM_MOUSELEAVE: u32 = 0x02A3;
 const TRAY_GUID: GUID = GUID::from_u128(0x7c1e4b52_9a3d_4f68_b0e2_5d81a6c3f975);
-const TRAY_GLYPH: u16 = 0xF4C3; //-- OR F0ED USE. 
+const TRAY_GLYPH: u16 = 0xF0ED; //-- OR F0ED USE. 
 
 static LAST_HIDE: AtomicU64 = AtomicU64::new(0);
 static TB_CREATED: AtomicU32 = AtomicU32::new(0);
@@ -222,33 +222,40 @@ unsafe fn tray_add(h: HWND) {
     }
 }
 
-// "Bark is running" balloon with the Bark icon; clicking it opens the flyout.
+// "Bark is running" notification (a tray balloon, which Windows 11 shows as a normal notification). It is sent like
+// any other tray update: every normal field again (icon, tip, callback) plus the info fields. The big picture comes
+// from the exe's own icon (bark.ico has large sizes); tray.ico only has 16/24 px.
 unsafe fn balloon(h: HWND) {
     if !TRAY_ON.load(Relaxed) {
         return;
     }
-    let ic = (ui().tray_icon)(GetSystemMetrics(SM_CXICON).max(32));
+    let big = GetModuleHandleW(None)
+        .ok()
+        .and_then(|m| LoadImageW(Some(HINSTANCE(m.0)), PCWSTR(1usize as *const u16), IMAGE_ICON, 48, 48, LR_DEFAULTCOLOR).ok())
+        .map_or(0, |i| i.0 as isize);
+    let (tray_ic, own) = icon_pair();
     let mut n = nid(h);
-    n.uFlags = NIF_INFO | NIF_MESSAGE;
-    if TRAY_GUID_OK.load(Relaxed) {
-        n.uFlags = n.uFlags | NIF_GUID;
-    }
+    n.hIcon = tray_ic;
+    n.uFlags = n.uFlags | NIF_INFO;
     for (i, c) in "Bark".encode_utf16().enumerate() {
         n.szInfoTitle[i] = c;
     }
     for (i, c) in "Bark is running. Configure here.".encode_utf16().enumerate() {
         n.szInfo[i] = c;
     }
-    n.dwInfoFlags = NIIF_NOSOUND;
-    if ic != 0 {
+    n.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND;
+    if big != 0 {
         n.dwInfoFlags = NIIF_USER | NIIF_LARGE_ICON | NIIF_NOSOUND;
-        n.hBalloonIcon = HICON(ic as *mut c_void);
+        n.hBalloonIcon = HICON(big as *mut c_void);
     }
     if Shell_NotifyIconW(NIM_MODIFY, &n).as_bool() {
         (api().set)(K_WELCOME, 1); // remembered in the registry, so it is never shown again
     }
-    if ic != 0 {
-        let _ = DestroyIcon(HICON(ic as *mut c_void));
+    if big != 0 {
+        let _ = DestroyIcon(HICON(big as *mut c_void));
+    }
+    if own {
+        let _ = DestroyIcon(tray_ic);
     }
 }
 
@@ -469,6 +476,13 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
             theme_check(h);
             DefWindowProcW(h, m, wp, lp)
         }
+        WM_ENDSESSION => {
+            if wp.0 != 0 {
+                tray_del(h);
+                (api().shutdown)();
+            }
+            LRESULT(0)
+        }
         WM_DESTROY => {
             tray_del(h);
             (api().shutdown)();
@@ -656,6 +670,10 @@ unsafe fn run() {
     let _ = RegisterHotKey(Some(hwnd), 2, mods, 0x22); // Win+Alt+PgDn
     let _ = RegisterHotKey(Some(hwnd), 3, mods, 0x51); // Win+Alt+Q
     trim();
+    // The installer starts Bark with --first-run so the panel opens once; the autostart entry has no argument.
+    if std::env::args().any(|a| a.eq_ignore_ascii_case("--first-run")) {
+        let _ = PostMessageW(Some(hwnd), WM_SHOWME, WPARAM(0), LPARAM(0));
+    }
 
     let mut msg = MSG::default();
     while GetMessageW(&mut msg, None, 0, 0).0 > 0 {

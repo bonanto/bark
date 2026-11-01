@@ -3,7 +3,7 @@ fn main() {
     r.set("FileDescription", "Bark: System Volume Fix (core engine)")
         .set("ProductName", "Bark")
         .set("CompanyName", "Bonanto")
-        .set("LegalCopyright", "Copyright (C) 2026 Bonanto. Licensed under GPLv3.")
+        .set("LegalCopyright", "Copyright © 2026 Bonanto. Licensed under GPLv3.")
         .set("FileVersion", "0.0.1.1")
         .set("ProductVersion", "1.0.1")
         .set("OriginalFilename", "sysvol.dll")
