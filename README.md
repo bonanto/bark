@@ -10,11 +10,25 @@ Bark runs quietly in the system tray. Click its icon once to open it.
 
 ## Features
 
-- Holds the System Sounds volume at your chosen level
-- Accepts manual changes from Bark or the Windows Volume mixer, and ignores Windows' automatic resets
-- Global hotkeys for adjusting the volume and toggling Quiet mode
+- System Sounds Volume Level fix. (Settings > Sounds > Volume Mixer: System Sounds). You set, Bark keeps it locked there!
+- Change System Sound Volume on Bark or in Windows Settings - Bark Accepts it; and Ignores Windows' auto reset.
+- Silence the Volume Slider Ding! - When you click to change volume on Windows, it plays a loud "DING" in your ear! Bark can shut it up!
+- Quiet Mode: Sets Windows Sound Scheme to "None"; and Turns Session Sounds off. So Any System Sound is Off.
+- Quiet Schedule: Turns on/off Quiet Mode automatically on your scheduled hours.
+- Hide Tray Icon: You can hide Tray Icon; Bark keeps running in the background!
+- Updates: Automatically checks for updates; but never downloads it. Download and Install is Manual process. Click Update button to visit GitHub Latest Release.
+- Use system icon: Replaces Bark Mascot icon with a System Fluent Icon Glyph.
+- Covers all: Supports Windows 10 and 11, 32 bit and 64 bit; and ARM64. - With one single Installer.
+- Zero system impact: Uses minimal system resorce (0.2-0.8 MB idling, and 0.8-1.5 MB of active RAM).
 - Lives in the system tray; a single click on the icon opens Bark
 - Free and open source, with no account, ads, or telemetry
+- 
+**New UI **(from pre-releases):
+- Supports full Windows Dark and Light Modes.
+- Supports Windows Accent Color for its UI elements. Automatically.
+- Windows native flyout - speaks the Windows 11 Fluent asthetics.
+- Language Support: Currently English US only!
+- Bark Mascot - its my kiddo! -
 
 ## Hotkeys
 
@@ -26,15 +40,15 @@ Bark runs quietly in the system tray. Click its icon once to open it.
 
 ## Installation
 
-Bark is available in two editions. Both provide the same functionality.
+Bark will be available in two editions. Both provide almost same functionality. Store restricts some features that are required to touch system sounds; so - 
 
-### Microsoft Store
-
-Search for **Bark - System Volume Fix** in the Microsoft Store and install it. The Store keeps the app up to date automatically.
-
-### GitHub installer
+### GitHub installer (Recommended) - Must verify Hash (See in Release). 
 
 Download the latest installer from the [Releases](https://github.com/bonanto/bark/releases) page and run it. Bark is added to your system tray with a single click.
+
+### Microsoft Store (In Submission and Certification)
+
+Search for **Bark - System Volume Fix** in the Microsoft Store and install it. The Store keeps the app up to date automatically.
 
 ## Usage
 
@@ -42,11 +56,11 @@ Download the latest installer from the [Releases](https://github.com/bonanto/bar
 2. Click the Bark icon in the system tray to open it. If the icon is hidden, click the **^** arrow in the taskbar to show hidden icons.
 3. Choose the System Sounds volume you want Bark to hold.
 
-You can also change the volume at any time in **Windows Settings → Sound → Volume mixer**. Bark treats that as a deliberate change and keeps the new level.
+You can also change the volume at any time in **Windows Settings → Sound → Volume mixer: System Sound**. Bark treats that as a deliberate change and keeps the new level.
 
 ## Requirements
 
-- Windows 10 (version 1809 or later) or Windows 11
+- Windows 10 (version 1809 or later) or Windows 11 x64, x86 or ARM64 (aarch64).
 
 ## Privacy and network use
 
