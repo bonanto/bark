@@ -287,12 +287,13 @@ pub extern "C" fn sv_tray_pin(visible: i32) -> i32 {
     let low = exe.to_ascii_lowercase();
     let tail = low.find(r"\windowsapps\").map_or(String::new(), |i| low[i..].to_string());
     for name in root.subkeys() {
-        if let Some(k) = reg::Key::open(&format!(r"{base}\{name}"), true) {
-            if let Some((_, p)) = k.raw_str("ExecutablePath") {
-                if p.eq_ignore_ascii_case(exe) || (!tail.is_empty() && p.to_ascii_lowercase().ends_with(&tail)) {
-                    k.set_dword("IsPromoted", (visible != 0) as u32);
-                    found = 1;
-                }
+        let sub = format!(r"{base}\{name}");
+        let Some(k) = reg::Key::open(&sub, false) else { continue };
+        let Some((_, p)) = k.raw_str("ExecutablePath") else { continue };
+        if p.eq_ignore_ascii_case(exe) || (!tail.is_empty() && p.to_ascii_lowercase().ends_with(&tail)) {
+            if let Some(wk) = reg::Key::open(&sub, true) {
+                wk.set_dword("IsPromoted", (visible != 0) as u32);
+                found = 1;
             }
         }
     }
