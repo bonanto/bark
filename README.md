@@ -22,13 +22,16 @@ Bark runs quietly in the system tray. Click its icon once to open it.
 - Zero system impact: Uses minimal system resorce (0.2-0.8 MB idling, and 0.8-1.5 MB of active RAM).
 - Lives in the system tray; a single click on the icon opens Bark
 - Free and open source, with no account, ads, or telemetry
-- 
-**New UI **(from pre-releases):
 - Supports full Windows Dark and Light Modes.
 - Supports Windows Accent Color for its UI elements. Automatically.
 - Windows native flyout - speaks the Windows 11 Fluent asthetics.
 - Language Support: Currently English US only!
-- Bark Mascot - its my kiddo! -
+- Bark Mascot - its my kiddo!
+
+### What's New (from Version 1.0.1):
+- **New:** Introduced Windows Startup Sound On/Off. **Requires Admin Privilege** once per action, Takes effect from next restart.
+- Silence Volume-Change Ding feature now also mutes session sounds to be more effective and helpful.
+- Minor UI changes and performance improvements.
 
 ## Hotkeys
 
@@ -87,4 +90,4 @@ Bark is free software released under the **GNU General Public License v3.0**. Se
 
 ---
 
-**Version 1.0.1** · © Bonanto, 2026 · GPLv3
+**Version 1.0.2** · © Bonanto, 2026 · GPLv3
