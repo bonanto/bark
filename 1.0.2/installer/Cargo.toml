@@ -1,0 +1,42 @@
+[package]
+name = "bark_setup"
+version = "0.0.1"
+edition = "2021"
+build = "build.rs"
+
+# Standalone on purpose: this is NOT part of Bark's workspace, so building Bark never builds the installer.
+[workspace]
+
+[[bin]]
+name = "BarkSetup"
+path = "src/main.rs"
+
+[build-dependencies]
+winresource = "0.1"
+miniz_oxide = "0.8"
+
+[dependencies]
+miniz_oxide = "0.8"
+
+[dependencies.windows]
+version = "0.61"
+features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
+  "Win32_System_Com",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Registry",
+  "Win32_System_Threading",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
