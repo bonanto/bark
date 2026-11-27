@@ -30,7 +30,6 @@ pub fn snap() -> u64 {
         K_SCHED_END,
         K_HIDE_TRAY,
         K_CLOCK24,
-        K_SYS_ICON,
     ] {
         a = (a ^ get(k) as u32 as u64).wrapping_mul(1099511628211);
     }
@@ -337,7 +336,7 @@ unsafe fn draw_page(mdc: HDC, cv: &Canvas, page: i32) {
         tx(
             mdc,
             "While the tray icon is hidden, it appears only when Bark is open. To open Bark again, start it from the Start menu or run bark.exe.",
-            [m, sc(228), w - m, sc(298)],
+            [m, sc(150), w - m, sc(220)],
             fs,
             p.dim,
             DT_WORDBREAK | DT_NOPREFIX,

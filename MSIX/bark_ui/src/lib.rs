@@ -38,7 +38,6 @@ mod keys {
     pub const K_SYS_DARK: u32 = 12;
     pub const K_HIDE_TRAY: u32 = 14;
     pub const K_CLOCK24: u32 = 15;
-    pub const K_SYS_ICON: u32 = 17;
     pub const K_ACC_L3: u32 = 18;
     pub const K_ACC_L2: u32 = 19;
     pub const K_ACC_L1: u32 = 20;

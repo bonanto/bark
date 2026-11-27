@@ -4,12 +4,12 @@ use std::{
     ffi::c_void,
     mem::{size_of, transmute},
     sync::{
-        atomic::{AtomicBool, AtomicI32, AtomicIsize, AtomicU32, AtomicU64, Ordering::Relaxed},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering::Relaxed},
         OnceLock,
     },
 };
 use windows::{
-    core::{s, w, BOOL, GUID, PCWSTR},
+    core::{s, w, GUID, PCWSTR},
     Win32::{
         Foundation::*,
         Graphics::{Dwm::*, Gdi::*},
@@ -26,7 +26,6 @@ struct Api {
     get: extern "C" fn(u32) -> i32,
     set: extern "C" fn(u32, i32),
     nudge: extern "C" fn(i32) -> i32,
-    tray_pin: extern "C" fn(i32) -> i32,
 }
 static API: OnceLock<Api> = OnceLock::new();
 fn api() -> &'static Api {
@@ -49,7 +48,6 @@ struct Ui {
     key: extern "C" fn(isize, u32),
     set_tip: extern "C" fn(isize),
     tip_wndproc: extern "C" fn() -> usize,
-    icon_font: extern "C" fn(i32) -> isize,
     tray_icon: extern "C" fn(i32) -> isize,
 }
 static UI: OnceLock<Ui> = OnceLock::new();
@@ -65,8 +63,6 @@ const K_QUIET_MANUAL: u32 = 2;
 const K_QUIET_ACTIVE: u32 = 8;
 const K_STEP: u32 = 6;
 const K_HIDE_TRAY: u32 = 14;
-const K_TASKBAR_DARK: u32 = 16;
-const K_SYS_ICON: u32 = 17;
 const K_WELCOME: u32 = 22;
 
 // DLL names per architecture (the exe and its two DLLs must have the same bitness).
@@ -86,35 +82,16 @@ const UI_DLL: &str = "\\buia64.dll";
 const WM_TRAY: u32 = WM_APP + 1;
 const WM_SHOWME: u32 = WM_APP + 2;
 const WM_CLOSED: u32 = WM_APP + 3;
-const WM_BRAND: u32 = WM_APP + 4;
-const T_PIN: usize = 100;
 const T_BALLOON: usize = 101;
 const NIN_BALLOONUSERCLICK: u32 = 0x0405;
 const WM_MOUSELEAVE: u32 = 0x02A3;
 const TRAY_GUID: GUID = GUID::from_u128(0x7c1e4b52_9a3d_4f68_b0e2_5d81a6c3f975);
-const TRAY_GLYPH: u16 = 0xF0ED; //-- OR F0ED USE. 
 
 static LAST_HIDE: AtomicU64 = AtomicU64::new(0);
 static TB_CREATED: AtomicU32 = AtomicU32::new(0);
 static LOGDIR: OnceLock<Vec<u16>> = OnceLock::new();
 static TRAY_ON: AtomicBool = AtomicBool::new(false);
 static TRAY_GUID_OK: AtomicBool = AtomicBool::new(true);
-static LAST_TB_DARK: AtomicI32 = AtomicI32::new(-1);
-static MAIN_HWND: AtomicIsize = AtomicIsize::new(0);
-static PIN_TRIES: AtomicU32 = AtomicU32::new(0);
-
-// The UI calls this instead of the core's setter, so a change of the icon style updates the tray at once.
-extern "C" fn set_wrap(k: u32, v: i32) {
-    (api().set)(k, v);
-    if k == K_SYS_ICON {
-        let h = MAIN_HWND.load(Relaxed);
-        if h != 0 {
-            unsafe {
-                let _ = PostMessageW(Some(HWND(h as *mut c_void)), WM_BRAND, WPARAM(0), LPARAM(0));
-            }
-        }
-    }
-}
 
 fn xy(lp: LPARAM) -> (i32, i32) {
     ((lp.0 & 0xFFFF) as i16 as i32, ((lp.0 >> 16) & 0xFFFF) as i16 as i32)
@@ -124,65 +101,16 @@ unsafe fn trim() {
     let _ = SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
 }
 
-// ---- tray icon (flat Segoe glyph, follows the taskbar theme) ----
-
-unsafe fn flat_icon() -> Option<HICON> {
-    let sz = GetSystemMetrics(SM_CXSMICON).max(16);
-    let fg: u32 = if (api().get)(K_TASKBAR_DARK) != 0 { 0x00FF_FFFF } else { 0 };
-    let hdc = GetDC(None);
-    let mdc = CreateCompatibleDC(Some(hdc));
-    let mut bi = BITMAPINFO::default();
-    bi.bmiHeader.biSize = size_of::<BITMAPINFOHEADER>() as u32;
-    bi.bmiHeader.biWidth = sz;
-    bi.bmiHeader.biHeight = -sz;
-    bi.bmiHeader.biPlanes = 1;
-    bi.bmiHeader.biBitCount = 32;
-    let mut bits: *mut c_void = std::ptr::null_mut();
-    let mut icon = None;
-    if let Ok(bmp) = CreateDIBSection(Some(hdc), &bi, DIB_RGB_COLORS, &mut bits, None, 0) {
-        if !bits.is_null() {
-            let old = SelectObject(mdc, bmp.into());
-            let f = (ui().icon_font)(sz);
-            let prev = SelectObject(mdc, HGDIOBJ(f as *mut c_void));
-            SetBkMode(mdc, TRANSPARENT);
-            SetTextColor(mdc, COLORREF(0x00FF_FFFF));
-            let mut g = [TRAY_GLYPH];
-            let mut rc = RECT { left: 0, top: 0, right: sz, bottom: sz };
-            DrawTextW(mdc, &mut g, &mut rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-            let _ = GdiFlush();
-            SelectObject(mdc, prev);
-            let _ = DeleteObject(HGDIOBJ(f as *mut c_void));
-            for px in std::slice::from_raw_parts_mut(bits as *mut u32, (sz * sz) as usize) {
-                *px = (((*px >> 8) & 0xFF) << 24) | fg;
-            }
-            let stride = (((sz + 15) / 16) * 2) as usize;
-            let zero = vec![0u8; stride * sz as usize];
-            let mask = CreateBitmap(sz, sz, 1, 1, Some(zero.as_ptr() as *const c_void));
-            let ii = ICONINFO { fIcon: BOOL(1), xHotspot: 0, yHotspot: 0, hbmMask: mask, hbmColor: bmp };
-            icon = CreateIconIndirect(&ii).ok();
-            let _ = DeleteObject(mask.into());
-            SelectObject(mdc, old);
-        }
-        let _ = DeleteObject(bmp.into());
-    }
-    let _ = DeleteDC(mdc);
-    ReleaseDC(None, hdc);
-    icon
-}
+// ---- tray icon ----
 
 // Returns the icon and whether we own it (and must destroy it).
 unsafe fn icon_pair() -> (HICON, bool) {
-    if (api().get)(K_SYS_ICON) == 0 {
-        let sz = GetSystemMetrics(SM_CXSMICON).max(16);
-        let h = (ui().tray_icon)(sz);
-        if h != 0 {
-            return (HICON(h as *mut c_void), true);
-        }
+    let sz = GetSystemMetrics(SM_CXSMICON).max(16);
+    let h = (ui().tray_icon)(sz);
+    if h != 0 {
+        return (HICON(h as *mut c_void), true);
     }
-    match flat_icon() {
-        Some(i) => (i, true),
-        None => (LoadIconW(None, IDI_APPLICATION).unwrap_or_default(), false),
-    }
+    (LoadIconW(None, IDI_APPLICATION).unwrap_or_default(), false)
 }
 
 fn nid(h: HWND) -> NOTIFYICONDATAW {
@@ -204,7 +132,6 @@ fn nid(h: HWND) -> NOTIFYICONDATAW {
 
 unsafe fn tray_add(h: HWND) {
     let (icon, own) = icon_pair();
-    LAST_TB_DARK.store((api().get)(K_TASKBAR_DARK), Relaxed);
     TRAY_GUID_OK.store(false, Relaxed);
     let mut n = nid(h);
     n.hIcon = icon;
@@ -218,9 +145,6 @@ unsafe fn tray_add(h: HWND) {
     TRAY_ON.store(ok, Relaxed);
     if own {
         let _ = DestroyIcon(icon);
-    }
-    if ok {
-        pin_start(h);
     }
 }
 
@@ -261,46 +185,9 @@ unsafe fn balloon(h: HWND) {
     }
 }
 
-// Windows 11: put the icon in the visible tray (system icon) or the hidden-icons overflow (Bark icon). The settings
-// entry appears a moment after the icon is added, so retry a few times, and once more after it is found.
-unsafe fn pin_start(h: HWND) {
-    PIN_TRIES.store(0, Relaxed);
-    pin_tick(h);
-}
-
-unsafe fn pin_tick(h: HWND) {
-    let _ = KillTimer(Some(h), T_PIN);
-    let visible = ((api().get)(K_SYS_ICON) != 0) as i32;
-    let found = (api().tray_pin)(visible) != 0;
-    let n = PIN_TRIES.fetch_add(1, Relaxed);
-    if (!found && n < 8) || (found && n == 0) {
-        let _ = SetTimer(Some(h), T_PIN, if found { 1500 } else { 500 }, None);
-    }
-}
-
-unsafe fn tray_mod(h: HWND) {
-    let (icon, own) = icon_pair();
-    let mut n = nid(h);
-    n.hIcon = icon;
-    let _ = Shell_NotifyIconW(NIM_MODIFY, &n);
-    if own {
-        let _ = DestroyIcon(icon);
-    }
-}
-
 unsafe fn tray_del(h: HWND) {
     if TRAY_ON.swap(false, Relaxed) {
         let _ = Shell_NotifyIconW(NIM_DELETE, &nid(h));
-    }
-}
-
-unsafe fn theme_check(h: HWND) {
-    if !TRAY_ON.load(Relaxed) {
-        return;
-    }
-    let d = (api().get)(K_TASKBAR_DARK);
-    if LAST_TB_DARK.swap(d, Relaxed) != d {
-        tray_mod(h);
     }
 }
 
@@ -393,13 +280,6 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
             finish_hide(h);
             LRESULT(0)
         }
-        WM_BRAND => {
-            if TRAY_ON.load(Relaxed) {
-                tray_mod(h);
-                pin_start(h);
-            }
-            LRESULT(0)
-        }
         WM_SHOWME => {
             if IsWindowVisible(h).as_bool() {
                 let _ = SetForegroundWindow(h);
@@ -473,9 +353,7 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
             LRESULT(0)
         }
         WM_TIMER => {
-            if wp.0 == T_PIN {
-                pin_tick(h);
-            } else if wp.0 == T_BALLOON {
+            if wp.0 == T_BALLOON {
                 let _ = KillTimer(Some(h), T_BALLOON);
                 balloon(h);
             } else {
@@ -488,10 +366,6 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
                 hide_fly(h);
             }
             LRESULT(0)
-        }
-        WM_SETTINGCHANGE => {
-            theme_check(h);
-            DefWindowProcW(h, m, wp, lp)
         }
         WM_DESTROY => {
             tray_del(h);
@@ -522,7 +396,6 @@ unsafe fn load_api(dll: &[u16]) -> Option<Api> {
         get: sym!("sv_get"),
         set: sym!("sv_set"),
         nudge: sym!("sv_nudge"),
-        tray_pin: sym!("sv_tray_pin"),
     })
 }
 
@@ -548,7 +421,6 @@ unsafe fn load_ui(dll: &[u16]) -> Option<Ui> {
         key: sym!("bui_key"),
         set_tip: sym!("bui_set_tip"),
         tip_wndproc: sym!("bui_tip_wndproc"),
-        icon_font: sym!("bui_icon_font"),
         tray_icon: sym!("bui_tray_icon"),
     })
 }
@@ -600,7 +472,7 @@ unsafe fn run() {
         return;
     };
     let _ = UI.set(u);
-    (ui().init)(api().get, set_wrap);
+    (ui().init)(api().get, api().set);
 
     let Ok(hm) = GetModuleHandleW(None) else { return };
     let hi = HINSTANCE(hm.0);
@@ -660,7 +532,6 @@ unsafe fn run() {
     )
     .unwrap_or_default();
     (ui().set_tip)(hv(tw));
-    MAIN_HWND.store(hv(hwnd), Relaxed);
 
     let round: u32 = 2; // DWMWCP_ROUND
     let _ = DwmSetWindowAttribute(hwnd, DWMWINDOWATTRIBUTE(33), &round as *const u32 as *const c_void, 4);

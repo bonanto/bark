@@ -1,5 +1,5 @@
 use windows::{
-    core::{PCWSTR, PWSTR},
+    core::PCWSTR,
     Win32::{Foundation::ERROR_SUCCESS, System::Registry::*},
 };
 
@@ -160,32 +160,5 @@ impl Key {
     pub fn del_value(&self, name: &str) {
         let n = w(name);
         let _ = unsafe { RegDeleteValueW(self.0, PCWSTR(n.as_ptr())) };
-    }
-
-    pub fn subkeys(&self) -> Vec<String> {
-        let mut out = Vec::new();
-        let mut i = 0u32;
-        loop {
-            let mut buf = [0u16; 256];
-            let mut len = 256u32;
-            let r = unsafe {
-                RegEnumKeyExW(
-                    self.0,
-                    i,
-                    Some(PWSTR(buf.as_mut_ptr())),
-                    &mut len,
-                    None,
-                    None,
-                    None,
-                    None,
-                )
-            };
-            if r != ERROR_SUCCESS {
-                break;
-            }
-            out.push(String::from_utf16_lossy(&buf[..len as usize]));
-            i += 1;
-        }
-        out
     }
 }

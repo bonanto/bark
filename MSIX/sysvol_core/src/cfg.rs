@@ -20,7 +20,7 @@ pub const K_QUIET_LEFT: u32 = 13; // virtual, read-only: minutes until the sched
 pub const K_HIDE_TRAY: u32 = 14;
 pub const K_CLOCK24: u32 = 15; // -1 = follow the system until chosen
 pub const K_TASKBAR_DARK: u32 = 16; // virtual, read-only
-pub const K_SYS_ICON: u32 = 17; // 0 = Bark icon (hidden in the tray overflow), 1 = system-style glyph in the visible tray
+// 17: unused (slot kept so the other key numbers stay stable)
 pub const K_ACC_L3: u32 = 18; // virtual, read-only: accent shades as 0x00RRGGBB (-1 = unavailable)
 pub const K_ACC_L2: u32 = 19;
 pub const K_ACC_L1: u32 = 20;
@@ -71,7 +71,7 @@ const NAMES: [&str; N] = [
     "HideTray",
     "Clock24",
     "",
-    "SystemIcon",
+    "",
     "",
     "",
     "",

@@ -57,7 +57,7 @@ impl IAudioSessionEvents_Impl for SessEv_Impl {
     fn OnIconPathChanged(&self, _n: &PCWSTR, _c: *const GUID) -> Result<()> {
         Ok(())
     }
-    fn OnSimpleVolumeChanged(&self, v: f32, _mute: BOOL, ctx: *const GUID) -> Result<()> {
+    fn OnSimpleVolumeChanged(&self, v: f32, mute: BOOL, ctx: *const GUID) -> Result<()> {
         unsafe {
             if !ctx.is_null() && *ctx == CTX {
                 return Ok(());
@@ -65,6 +65,9 @@ impl IAudioSessionEvents_Impl for SessEv_Impl {
         }
         let pct = (v * 100.0).round() as i32;
         post(WM_VOL, focus::gesture() as usize, pct as isize);
+        if !mute.as_bool() && get(K_QUIET_ACTIVE) != 0 {
+            post(WM_EVAL, 0, 0);
+        }
         Ok(())
     }
     fn OnChannelVolumeChanged(&self, _n: u32, _a: *const f32, _c: u32, _x: *const GUID) -> Result<()> {

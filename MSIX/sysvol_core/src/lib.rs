@@ -220,7 +220,7 @@ pub extern "C" fn sv_get(k: u32) -> i32 {
         K_CLOCK24 => clock24(),
         K_QUIET_LEFT => audio::sched_left(),
         K_ACC_L3 | K_ACC_L2 | K_ACC_L1 | K_ACC_D1 => accent(k),
-        0..=8 | K_DING | K_HIDE_TRAY | K_SYS_ICON | K_WELCOME => cfg::get(k),
+        0..=8 | K_DING | K_HIDE_TRAY | K_WELCOME => cfg::get(k),
         _ => 0,
     }
 }
@@ -259,7 +259,7 @@ pub extern "C" fn sv_set(k: u32, v: i32) {
             cfg::save(k);
         }
         K_AUTOSTART => autostart_set(v != 0),
-        K_DING | K_HIDE_TRAY | K_CLOCK24 | K_SYS_ICON | K_WELCOME => {
+        K_DING | K_HIDE_TRAY | K_CLOCK24 | K_WELCOME => {
             cfg::put(k, (v != 0) as i32);
             cfg::save(k);
         }
@@ -274,29 +274,4 @@ pub extern "C" fn sv_nudge(delta: i32) -> i32 {
     let v = (if cur < 0 { 0 } else { cur } + delta).clamp(0, 100);
     sv_set(K_VOLUME, v);
     v
-}
-
-/// Windows 11 keeps a per-icon "IsPromoted" flag (visible in the tray vs. hidden-icons overflow). Sets it for this
-/// exe's icon. Returns 1 if the icon's entry was found (it appears shortly after the icon is added), else 0.
-#[no_mangle]
-pub extern "C" fn sv_tray_pin(visible: i32) -> i32 {
-    let Some(exe) = EXE.get() else { return 0 };
-    let base = r"Control Panel\NotifyIconSettings";
-    let Some(root) = reg::Key::open(base, false) else { return 0 };
-    let mut found = 0;
-    let low = exe.to_ascii_lowercase();
-    let tail = low.find(r"\windowsapps\").map_or(String::new(), |i| low[i..].to_string());
-    for name in root.subkeys() {
-        let sub = format!(r"{base}\{name}");
-        let Some(k) = reg::Key::open(&sub, false) else { continue };
-        let Some((_, p)) = k.raw_str("ExecutablePath") else { continue };
-        if p.eq_ignore_ascii_case(exe) || (!tail.is_empty() && p.to_ascii_lowercase().ends_with(&tail)) {
-            if let Some(wk) = reg::Key::open(&sub, true) {
-                wk.set_dword("IsPromoted", (visible != 0) as u32);
-                found = 1;
-            }
-        }
-    }
-    lg!("tray pin visible={visible}: entry found={found}");
-    found
 }

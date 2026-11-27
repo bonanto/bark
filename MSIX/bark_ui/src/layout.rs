@@ -20,7 +20,6 @@ pub const SCHED_ROW: i32 = 15;
 pub const CLOCK24: i32 = 16;
 pub const AUTO: i32 = 17;
 pub const HIDE: i32 = 18;
-pub const BRAND: i32 = 20;
 
 pub const SL_L: i32 = M + 30;
 
@@ -77,7 +76,6 @@ pub fn toggle_key(id: i32) -> Option<u32> {
         CLOCK24 => Some(K_CLOCK24),
         AUTO => Some(K_AUTOSTART),
         HIDE => Some(K_HIDE_TRAY),
-        BRAND => Some(K_SYS_ICON),
         _ => None,
     }
 }
@@ -215,13 +213,6 @@ pub fn items(page: i32) -> Vec<Item> {
                 "Hide tray icon",
                 "The tray icon appears only while Bark is open.",
                 G_HIDE,
-            ));
-            v.push(row(
-                BRAND,
-                134,
-                "Use system icon",
-                "Show the system-style icon in the visible tray. When off, the Bark icon stays in the hidden-icons area.",
-                G_PIN,
             ));
         }
         _ => {

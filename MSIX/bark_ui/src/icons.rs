@@ -12,4 +12,3 @@ pub const G_LOCK: u16 = 0xE72E;
 pub const G_DING: u16 = 0xE7ED;
 pub const G_PLAY: u16 = 0xE768;
 pub const G_HIDE: u16 = 0xE7B3;
-pub const G_PIN: u16 = 0xE718;
